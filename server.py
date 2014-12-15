@@ -15,17 +15,13 @@ import json
 from tornado.options import define, options
 import opencv
 
-define("port", default=8888, help="run on the given poort", type=int)
+define("port", default=8888, help="run on the given port", type=int)
 
 class Application(tornado.web.Application):
   def __init__(self):
     handlers = [
-        #(r"/", MainHandler),
-        #(r"/facedetector", FaceDetectHandler),
-        (r"/", SetupHarvestHandler),
-        (r"/harvesting", HarvestHandler),
-        (r"/predict", PredictHandler),
-        (r"/train", TrainHandler)
+        (r"/", MainHandler),
+        (r"/carddetector", CardDetectHandler)
         ]
 
     settings = dict(
@@ -58,61 +54,18 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
   def process(self, cv_image):
     pass
 
-class FaceDetectHandler(SocketHandler):
+class CardDetectHandler(SocketHandler):
 
   def process(self, cv_image):
-    faces = opencv.detect_faces(cv_image)
-    if len(faces) > 0:
-      result = json.dumps(faces.tolist())
+    cards = opencv.detect(cv_image)
+    if len(cards) > 0:
+      result = json.dumps(cards.tolist())
       self.write_message(result)
-
-class SetupHarvestHandler(tornado.web.RequestHandler):
-  def get(self):
-    self.render("harvest.html")
-
-  def post(self):
-    name = self.get_argument("label", None)
-    if not name:
-      logging.error("No label, bailing out")
-      return
-    logging.info("Got label %s" %  name)
-    opencv.Label.get_or_create(name=name).persist()
-    logging.info("Setting secure cookie %s" % name)
-    self.set_secure_cookie('label', name)
-    self.redirect("/")
-
-class HarvestHandler(SocketHandler):
-  def process(self, cv_image):
-    label = opencv.Label.get(opencv.Label.name == self.get_secure_cookie('label'))
-    logging.info("Got label: %s" % label.name)
-    if not label:
-      logging.info("No cookie, bailing out")
-      return
-    logging.info("About to save image")
-    result = opencv.Image(label=label).persist(cv_image)
-    if result == 'Done':
-      self.write_message(json.dumps(result))
-
-class TrainHandler(tornado.web.RequestHandler):
-  def post(self):
-    opencv.train()
-
-class PredictHandler(SocketHandler):
-  def process(self, cv_image):
-    result = opencv.predict(cv_image)
-    if result: 
-      self.write_message(json.dumps(result))
+    else:
+      self.write_message(json.dumps("No cards detected."))
 
 def main():
   tornado.options.parse_command_line()
-  opencv.Image().delete()
-  logging.info("Images deleted")
-  opencv.Label().delete()
-  logging.info("Labels deleted")
-  opencv.load_images_to_db("data/images")
-  logging.info("Labels and images loaded")
-  opencv.train()
-  logging.info("Model trained")
   app = Application()
   app.listen(options.port)
   tornado.ioloop.IOLoop.instance().start()

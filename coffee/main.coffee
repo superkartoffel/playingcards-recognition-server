@@ -15,11 +15,11 @@ canvas = document.querySelector('canvas')
 ctx = canvas.getContext('2d')
 ctx.strokeStyle = '#ff0'
 ctx.lineWidth = 2
-ws = new WebSocket("ws://#{location.host}/facedetector")
+text = document.querySelector('#text')
+ws = new WebSocket("ws://#{location.host}/carddetector")
 ws.onopen = ->  console.log "Opened websocket"
 ws.onmessage = (e) ->
-  openCvCoords = JSON.parse(e.data)[0]
-  ctx.strokeRect(openCvCoords[0], openCvCoords[1], openCvCoords[2], openCvCoords[3])
+  cards = JSON.parse(e.data)
+  text.innerHTML = cards
 
 navigator.webkitGetUserMedia({'video': true, 'audio': false}, onSuccess, onError) 
-
